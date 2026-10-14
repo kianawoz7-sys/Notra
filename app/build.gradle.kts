@@ -18,8 +18,8 @@ android {
         applicationId = "id.catatcatat"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake {
             arguments += listOf("-DWHISPER_SOURCE_DIR=${localConfig.getProperty("whisper.dir")}", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")

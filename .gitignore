@@ -5,6 +5,7 @@ local.properties
 **/.cxx/
 *.iml
 .idea/
+.codex-remote-attachments/
 *.apk
 *.aab
 *.jks

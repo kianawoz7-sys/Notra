@@ -1,6 +1,6 @@
 **Notra siap dicoba di Android**
 
-APK pembaruan: `D:\CatatCatat-tools\dist\Notra-v1.0.3.apk`. Model suara sudah ada di dalam APK; tidak perlu mengunduh model lagi di HP. Pasang sebagai pembaruan di atas Catat-Catat, tanpa mencopot aplikasi, agar catatan tetap ada. Sertifikat penandatanganan dan ID aplikasi tetap sama.
+APK pembaruan: `D:\CatatCatat-tools\dist\Notra-v1.0.4.apk`. Versi ini mengganti ikon dengan objek catatan pada PNG transparan. Launcher HP dapat menambahkan bingkainya sendiri. Model suara sudah ada di dalam APK; tidak perlu mengunduh model lagi di HP. Pasang sebagai pembaruan di atas Catat-Catat/Notra, tanpa mencopot aplikasi, agar catatan tetap ada. Sertifikat penandatanganan dan ID aplikasi tetap sama.
 
 **Memasang**
 

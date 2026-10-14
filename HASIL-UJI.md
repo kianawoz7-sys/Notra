@@ -1,3 +1,13 @@
+**Ikon Notra 1.0.4 — 14 Oktober 2026, Asia/Jakarta**
+
+Logo diganti dari gambar terbaru pengguna. Penghapusan latar memakai tool imagegen bawaan, kemudian alpha hasil diperiksa. PNG sumber dan PNG di APK sama-sama RGBA 1254×1254, alpha 0 pada empat sudut, dengan 851.667 piksel sepenuhnya transparan. Pemeriksaan alpha ≥128 menemukan satu komponen objek utama dan tidak menemukan komponen terpisah di luarnya. Detail objek gelap dan lipatan catatan tetap ada. Prompt lengkap dan lokasi aset tercatat di `ICON.md`.
+
+- Build APK dan lint berhasil: **0 error, 13 warning** yang sama dengan pemeriksaan terakhir 1.0.3. Perubahan hanya resource ikon, nomor versi, dokumentasi, dan pengabaian folder lampiran chat pada Git.
+- APK dipasang sebagai pembaruan di emulator proyek; aplikasi tetap terbuka dan Laporan masih menampilkan Kost Rp800.000 dari data uji sebelumnya. Model suara, parser, Room, backup, tema, dan animasi pembuka tidak diubah. Tes inti tidak diulang untuk penggantian gambar ini.
+- Ikon PNG baru diperiksa pada launcher emulator. Pengujian format adaptif dengan latar transparan menghasilkan lingkaran hitam; format final memakai bitmap RGBA langsung. Launcher Pixel tetap menambahkan bingkai putih dan menyesuaikan ukuran objek. PNG dan resource aplikasi tidak menyertakan bingkai tersebut. Tampilan launcher Infinix belum diuji secara langsung, sehingga belum diklaim bebas bingkai di HP.
+- Signature dan alignment 16 KB valid. Sertifikat tetap `755400dbccf91a70bb87bf41188720b315d3b22818fa7bd797260d5cc26864f7`; ID `id.catatcatat`, versionCode 5, versionName 1.0.4. Pembaruan dapat dipasang tanpa uninstall.
+- APK `D:\CatatCatat-tools\dist\Notra-v1.0.4.apk`: **78.796.444 byte**, SHA-256 `f9dbf00d031d2375d243147c72b6f2db82d17e91328d89fe17db1dfab06dc83d`. PNG transparan: `D:\CatatCatat-tools\dist\notra-logo-transparent-v1.0.4.png`, SHA-256 `c4ef099c037fc467c03d055ba0af3660b473a68987f8663f34dd3d09f5cc9c48`.
+
 **Notra 1.0.3 — 14 Oktober 2026, Asia/Jakarta**
 
 Nama aplikasi menjadi **Notra**, memakai gambar catatan bertumpuk dari pengguna. Pengaturan menambahkan satu kartu **Tema tampilan** dengan pilihan **Terang / Gelap / Sistem**. Pilihan tersimpan di SharedPreferences dan Sistem menjadi pilihan awal. Splash native menampilkan tiga titik berderet yang membentuk lingkaran, berputar, lalu menghilang sebelum halaman utama muncul. Animasi Compose berdurasi sekitar 1,65 detik dan mengikuti pengaturan durasi animasi Android.

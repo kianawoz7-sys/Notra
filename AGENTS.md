@@ -6,4 +6,5 @@
 - Main target phone: Infinix GT 10 Pro, physical RAM 8 GB. Extended RAM is not the capacity baseline.
 - Voice design follows the user's grayscale orb references. Draw and animate it natively; maintain simple Indonesian controls.
 - Visible app name is Notra. Use the supplied stacked-notes logo. Keep the existing application ID, database, backup format, and signing key compatible with Catat-Catat updates. Settings offers Light, Dark, and System themes; default is System. Splash animates three dots into a rotating circle.
+- The current logo is a transparent cutout of the latest user image. Preserve its alpha and the dark note/bar details. The launcher resource uses a bitmap; adaptive icons with transparent backgrounds were observed to render an opaque black plate. Pixel still wraps bitmap icons in a white plate, so distinguish the transparent asset from launcher-specific framing. See ICON.md.
 - See `RENCANA.md` for agreed behavior and `README.md` for build/use instructions. The user will test their own voice on the phone later; distinguish emulator/synthetic speech results from physical-phone performance.
