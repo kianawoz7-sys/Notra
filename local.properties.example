@@ -1,0 +1,5 @@
+# Copy to local.properties and adjust paths for your local tools.
+# local.properties is ignored by Git; keep SDK, model, and native sources on D.
+sdk.dir=D:/CatatCatat-tools/sdk
+whisper.dir=D:/CatatCatat-tools/whisper.cpp-1.8.2
+model.dir=D:/CatatCatat-tools/models

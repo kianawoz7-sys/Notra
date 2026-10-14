@@ -1,0 +1,4 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="288dp" android:height="288dp" android:viewportWidth="288" android:viewportHeight="288">
+    <!-- Match the Compose dots inside Android's 288dp starting-window icon. -->
+    <path android:fillColor="@color/splash_foreground" android:pathData="M126,140.5a3.5,3.5 0,1 1,0 7a3.5,3.5 0,1 1,0 -7M144,140.5a3.5,3.5 0,1 1,0 7a3.5,3.5 0,1 1,0 -7M162,140.5a3.5,3.5 0,1 1,0 7a3.5,3.5 0,1 1,0 -7" />
+</vector>

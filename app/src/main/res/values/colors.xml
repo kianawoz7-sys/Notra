@@ -1,0 +1,6 @@
+<resources>
+    <color name="app_background">#FCFCFC</color>
+    <color name="splash_foreground">#202625</color>
+    <color name="launcher_background">#FFFFFF</color>
+    <bool name="light_system_bars">true</bool>
+</resources>
