@@ -5,6 +5,14 @@ import org.junit.Test
 import java.time.LocalDate
 
 class ExpenseParserTest {
+    @Test fun parkingTwoThousand() { assertEquals(2000L, ExpenseParser.parse("parkir dua ribu").single().amount) }
+    @Test fun laundryTwelveRebu() { assertEquals(12000L, ExpenseParser.parse("cuci 12 rebu").single().amount) }
+    @Test fun subscriptionOneHundredSixtyFiveThousand() { assertEquals(165000L, ExpenseParser.parse("langganan ChatGPT seratus enam puluh lima ribu").single().amount) }
+    @Test fun electronicsNamesDoNotNeedAFoodDictionary() {
+        val rows = ExpenseParser.parse("charger tiga puluh ribu, speaker seratus dua puluh ribu")
+        assertEquals(listOf("Charger", "Speaker"), rows.map { it.name })
+        assertEquals(listOf(30000L, 120000L), rows.map { it.amount })
+    }
     @Test fun colloquialTwelveThousand() { assertEquals(12000L, ExpenseParser.parse("macha dua belas rebu").single().amount) }
     @Test fun twoMixedItems() {
         val rows = ExpenseParser.parse("Nasi ayam lima belas rebu, es teh lima rebu.")

@@ -103,10 +103,10 @@ class DeviceIntegrationTest {
         for (i in 16000 until 24000) audio[i] = .003f
         for (i in 56000 until 64000) audio[i] = .003f
         val trimmed = VoiceEngine(context).trimAudio(audio)
-        assertEquals(56000, trimmed.size)
+        assertEquals(60800, trimmed.size)
         assertEquals(16000, trimmed.count { it == .003f })
-        assertEquals(.003f, trimmed[4000])
-        assertEquals(.003f, trimmed[40000 + 4000])
+        assertEquals(.003f, trimmed[6400])
+        assertEquals(.003f, trimmed[40000 + 6400])
     }
 
     private fun speechAudio(name: String): FloatArray {

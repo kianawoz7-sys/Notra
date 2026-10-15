@@ -1,3 +1,39 @@
+**Notra 1.1.0 — upgrade voice, 15 Oktober 2026, Asia/Jakarta**
+
+Default voice menjadi Whisper Small multilingual Q5_1 (190.085.487 byte). Rekaman memakai jalur MIC, pemangkasan hening hanya di tepi dengan padding 400 ms, dan gain terbatas maksimal 8 kali. Decoder memakai beam search 3, konteks penuh, serta prompt kosakata tanpa contoh harga. Model diperiksa ukuran/SHA-256 sebelum dipakai. Small membutuhkan lebih banyak penyimpanan dan komputasi; tidak ada optimasi pengecilan APK.
+
+- **59 tes unit lulus**: 28 parser/periode, 16 backup, 4 pertahanan transkripsi, 11 pemrosesan audio. Kasus tambahan mencakup parkir Rp2.000, cuci Rp12.000, langganan ChatGPT Rp165.000, charger/speaker, audio pelan, clipping, hening, klik, NaN, dan jeda internal.
+- **Small: 12/12 tes Android lulus**, termasuk ucapan satu/dua/empat pengeluaran, rebu, kasus enam detik tanpa duplikasi, penolakan hening, penghentian native pada 700 ms dan pembatalan, transkripsi berikutnya setelah penghentian, Room, transaksi, dan pemulihan backup.
+- **Base pembanding: 11/12 tes Android lulus**. Kasus dua pengeluaran salah ditranskripsikan menjadi `Nasi ayam 15 ribu, ST-55 ribu.` Nominal kedua ditandai tidak valid. Kegagalan pengenalan ini tetap dicatat; tes tidak dilonggarkan dan nominal tidak ditebak.
+- Lint akhir: **0 error, 6 warning** (target API/dependensi, vektor splash, dan saran aturan backup Android). API/database/backup, tema, splash, serta ikon tidak diubah oleh upgrade voice.
+- Uji memakai emulator Android 36.1 x86_64, RAM 4 GB, 4 core, port 5556. Mode pesawat aktif dan Wi-Fi mati. ABI ARM64 dibangun dengan pustaka baseline/FP16/dot-product; jalur runtime ARM dan mikrofon Infinix belum diuji.
+
+Perbandingan memakai **audio yang sama dan pipeline yang sama**, hanya model yang berbeda. Audio sintetis `id-ID-ArdiNeural` dibuat di PC lalu PCM 16 kHz diproses offline pada Android. “Cepat” berarti rate TTS +20%; “pelan” berarti amplitudo PCM dikalikan 0,03. Ini bukan sampel suara pengguna atau ukuran akurasi umum.
+
+| Contoh | Small: hasil dan waktu putaran akhir | Base pembanding: hasil dan waktu |
+|---|---|---|
+| Cuci 12 ribu, normal | `Cuci 12.000` — benar, 4,53 dtk | `cuci dua belas ribu.` — benar, 1,42 dtk |
+| Cuci 12 ribu, +20% | `Cuci Rp12.000` — benar, 4,08 dtk | `Cuci dua belas ribu.` — benar, 1,15 dtk |
+| Cuci 12 ribu, amplitudo 3% | `Cuci Rp12.000` — benar, 4,16 dtk | `cuci dua belas ribu.` — benar, 1,18 dtk |
+| Parkir 2 ribu | `Parkir 2000` — benar, 4,03 dtk | `Parkir dwari bu.` — nominal hilang, 1,25 dtk |
+| Langganan ChatGPT 165 ribu | `Langganan ChatGPT 165.000` — benar, 4,22 dtk | `Langganan ChatGPT 165.` — nominal ambigu, 1,22 dtk |
+| Charger 30 ribu, speaker 120 ribu | `Charger 30.000, speaker 120.000.` — benar, 4,27 dtk | `Charger 30 ribu, speaker 120 ribu.` — benar, 1,25 dtk |
+
+Small benar untuk nama dan nominal **6/6** contoh tersebut; Base benar untuk **4/6**. Nama ChatGPT diperiksa lengkap pada putaran akhir. Metode benchmark melaporkan semua teks/error dan waktu; keberhasilan menjalankan metode benchmark sendiri bukan bukti bahwa semua ucapan benar. Salah satu putaran awal Small memerlukan 22,84 detik untuk contoh pertama; putaran akhir 4,03–4,53 detik. Beban/warm-up emulator memengaruhi hasil. Angka ini tidak memprediksi GT 10 Pro. Contoh lama “macha ... es teh ...” masih menghasilkan nama `Maca`/`ST` walaupun nominal benar, sehingga koreksi nama sebelum menyimpan tetap diperlukan.
+
+Uji pertama menemukan scheduler upstream v1.8.2 tidak meneruskan callback abort ke CPU; encoder besar terus berjalan setelah deadline. `WhisperCancellation.cmake` kini memeriksa hash source lalu menghasilkan salinan yang meneruskan callback pada conv/encoder/cross/decoder. Patch disimpan di Git, sehingga pembersihan unduhan D tidak menghapus perbaikannya. Penghentian dan pemakaian ulang konteks lulus sesudah patch. Jalur x86_64 AVX2/FMA/F16C memiliki pemeriksaan fitur dan baseline tetap tersedia; pengujian di atas memakai jalur cepat emulator.
+
+Catatan UI `Uji Small Base` Rp12.345 dibuat di Small, lalu APK diganti ke Base dan kembali ke Small tanpa uninstall. Catatan dan total tetap Rp12.345 pada kedua pergantian. Paket memakai ID `id.catatcatat`, versionCode **6**, sertifikat SHA-256 tetap `755400dbccf91a70bb87bf41188720b315d3b22818fa7bd797260d5cc26864f7`. Signature v2 dan alignment 16 KB valid. Manifest hanya meminta mikrofon serta permission internal AndroidX, tanpa izin internet. Masing-masing APK memuat satu model, kedua ABI, dan lisensi; audio tes tidak masuk APK pengguna.
+
+| APK di `D:\CatatCatat-tools\dist` | Ukuran | SHA-256 |
+|---|---|---|
+| `Notra-v1.1.0-Small.apk` | 214.319.357 byte (~204,4 MiB) | `d60261a62306dbe0748baa159fdc6cfbf5c3893c7e025692102ab09c96447e99` |
+| `Notra-v1.1.0-Base-pembanding.apk` | 81.173.793 byte (~77,4 MiB) | `934e93dd1296c3f47c2942d7cddb251ec4e1554618c58a3b401eae9bdc04de67` |
+
+Base adalah paket eksperimen pembanding, dengan kegagalan yang dicatat di atas. Kedua APK bisa dipasang bergantian sebagai pembaruan; APK arsip 1.0.4 memakai versionCode 5 sehingga installer biasa dapat menolak downgrade langsung. Semua unduhan, dependensi tambahan, native/cache build, fixture, emulator, log, dan paket baru berada di D. Source yang diedit tetap di C. Log lengkap serta `Notra-v1.1.0-verifikasi.json` berada di D; suara asli, jarak/tempo nyaman, waktu proses, dan konsumsi baterai pada HP masih perlu dicoba pengguna.
+
+Pemeriksaan tambahan lewat tombol rekam tidak selesai: proses host `qemu-system-x86_64-headless.exe` berhenti dua kali dengan Windows Application Error `0xc0000005`, sehingga ADB offline. Ini terjadi setelah seluruh uji transkripsi fixture dan pergantian APK di atas selesai. Tidak ada hasil lulus untuk capture MIC dari pemeriksaan tersebut; keberhasilan tes fixture tidak memvalidasi jalur mikrofon nyata. Log host emulator disimpan di D. Penyebab spesifik crash QEMU belum dipastikan; perubahan UI tidak dilakukan untuk mengakalinya. Uji capture MIC dan akurasi suara tetap menunggu HP fisik.
+
 **Ikon Notra 1.0.4 — 14 Oktober 2026, Asia/Jakarta**
 
 Logo diganti dari gambar terbaru pengguna. Penghapusan latar memakai tool imagegen bawaan, kemudian alpha hasil diperiksa. PNG sumber dan PNG di APK sama-sama RGBA 1254×1254, alpha 0 pada empat sudut, dengan 851.667 piksel sepenuhnya transparan. Pemeriksaan alpha ≥128 menemukan satu komponen objek utama dan tidak menemukan komponen terpisah di luarnya. Detail objek gelap dan lipatan catatan tetap ada. Prompt lengkap dan lokasi aset tercatat di `ICON.md`.

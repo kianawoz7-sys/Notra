@@ -8,6 +8,7 @@
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
+#include <android/log.h>
 
 using Clock = std::chrono::steady_clock;
 struct VoiceTask {
@@ -70,18 +71,23 @@ Java_id_catatcatat_WhisperNative_transcribe(JNIEnv *env, jobject, jstring path, 
     Progress progress{env, listener, update, task.get()};
     progress.report(0, 0);
     if (cached_path != model || !cached_context) {
+        const auto loading_started = Clock::now();
+        __android_log_print(ANDROID_LOG_INFO, "CatatVoice", "Native model loading");
         cached_context.reset();
         auto options = whisper_context_default_params();
         options.use_gpu = false;
         cached_context.reset(whisper_init_from_file_with_params(model.c_str(), options));
         cached_path = model;
+        __android_log_print(ANDROID_LOG_INFO, "CatatVoice", "Native model ready in %lldms", static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - loading_started).count()));
     }
     if (stop_if_aborted(env, *task)) return nullptr;
     if (!cached_context) { fail(env, "java/lang/IllegalStateException", "Model suara tidak dapat dibuka."); return nullptr; }
     auto *ctx = cached_context.get();
     jfloat *samples = env->GetFloatArrayElements(audio, nullptr);
     if (!samples) return nullptr;
-    auto params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    auto params = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
+    params.beam_search.beam_size = 3;
+    params.temperature = 0.0f;
     params.n_threads = std::max(1, std::min(4, static_cast<int>(std::thread::hardware_concurrency())));
     params.language = "id";
     params.translate = false;
@@ -96,12 +102,11 @@ Java_id_catatcatat_WhisperNative_transcribe(JNIEnv *env, jobject, jstring path, 
     params.suppress_nst = true;
     params.temperature_inc = 0.0f;
     const int sample_count = env->GetArrayLength(audio);
-    // Keep at least ten seconds of attention for short purchases, plus padding.
-    // The earlier 256-frame minimum was too aggressive for a real short clip.
-    const int required_context = (sample_count * 50 + 15999) / 16000 + 100;
-    params.audio_ctx = std::min(whisper_n_audio_ctx(ctx), std::max(512, ((required_context + 127) / 128) * 128));
+    // Use the model's trained context rather than cutting encoder attention for speed.
+    params.audio_ctx = 0;
     params.max_tokens = std::min(192, std::max(48, sample_count * 8 / 16000 + 24));
-    params.initial_prompt = "Catatan pengeluaran dalam rupiah: nasi ayam lima belas ribu, es teh lima ribu, matcha dua belas ribu, bayar kost delapan ratus ribu, paket data lima puluh ribu, ngeprint lima ribu, bensin tiga puluh ribu.";
+    // Vocabulary hints only: example prices must not steer the spoken amounts.
+    params.initial_prompt = "Catatan pengeluaran dalam bahasa Indonesia, nominal dalam rupiah. Kosakata: cuci, laundry, parkir, charger, speaker, langganan ChatGPT, kost, paket data, ngeprint, bensin, makanan, minuman.";
     params.abort_callback = [](void *data) { return static_cast<VoiceTask *>(data)->aborted(); };
     params.abort_callback_user_data = task.get();
     params.encoder_begin_callback = [](whisper_context *, whisper_state *, void *data) { return !static_cast<VoiceTask *>(data)->aborted(); };

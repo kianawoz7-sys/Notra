@@ -6,9 +6,17 @@ plugins {
     id("com.google.devtools.ksp")
 }
 val localConfig = Properties().apply { rootProject.file("local.properties").inputStream().use(::load) }
+val voiceModel = providers.gradleProperty("voiceModel").getOrElse("small")
+require(voiceModel in setOf("small", "base")) { "voiceModel must be small or base" }
+val voiceModelFile = "ggml-$voiceModel-q5_1.bin"
 val voiceAssets by tasks.registering(Sync::class) {
-    from(localConfig.getProperty("model.dir")) { include("ggml-base-q5_1.bin", "*LICENSE.txt") }
+    from(localConfig.getProperty("model.dir")) { include(voiceModelFile, "*LICENSE.txt") }
     into("D:/CatatCatat-tools/packaged-model")
+    doFirst {
+        val model = file("${localConfig.getProperty("model.dir")}/$voiceModelFile")
+        val expectedBytes = if (voiceModel == "small") 190085487L else 59707625L
+        check(model.isFile && model.length() == expectedBytes) { "Model $voiceModelFile belum lengkap. Jalankan tools/fetch_voice_models.py; model disimpan di D." }
+    }
 }
 android {
     namespace = "id.catatcatat"
@@ -18,8 +26,9 @@ android {
         applicationId = "id.catatcatat"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 6
+        versionName = if (voiceModel == "small") "1.1.0" else "1.1.0-base"
+        buildConfigField("String", "VOICE_MODEL_FILE", "\"$voiceModelFile\"")
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake {
             arguments += listOf("-DWHISPER_SOURCE_DIR=${localConfig.getProperty("whisper.dir")}", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")

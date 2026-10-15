@@ -9,15 +9,21 @@ import android.util.Log
 import androidx.annotation.Keep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.sqrt
-import kotlin.math.abs
 
 object WhisperNative {
     init {
         val features = runCatching { File("/proc/cpuinfo").readText().lowercase().split(Regex("\\s+")) }.getOrDefault(emptyList())
-        val accelerated = Build.SUPPORTED_ABIS.firstOrNull() == "arm64-v8a" && "asimdhp" in features && "asimddp" in features
+        val accelerated = when (Build.SUPPORTED_ABIS.firstOrNull()) {
+            "arm64-v8a" -> "asimdhp" in features && "asimddp" in features
+            "x86_64" -> listOf("sse4_2", "avx", "avx2", "fma", "f16c").all { it in features }
+            else -> false
+        }
         val library = if (accelerated) "catatvoice_fast" else "catatvoice"
         System.loadLibrary(library)
         Log.i("CatatVoice", "Native library: $library; ABI=${Build.SUPPORTED_ABIS.firstOrNull()}")
@@ -49,14 +55,16 @@ class VoiceRecorder {
     suspend fun capture(level: (Float, Int) -> Unit): FloatArray = withContext(Dispatchers.IO) {
         val minBuffer = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         require(minBuffer > 0) { "Mikrofon belum tersedia." }
-        val recorder = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minBuffer * 2, 6400))
+        // Use the phone's normal recording path. Vendor processing varies by device;
+        // bounded software gain below also handles quieter PCM without assuming AGC.
+        val recorder = AudioRecord(MediaRecorder.AudioSource.MIC, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minBuffer * 2, 6400))
         try {
             check(recorder.state == AudioRecord.STATE_INITIALIZED) { "Mikrofon tidak dapat dibuka. Coba tutup aplikasi lain yang memakai mikrofon." }
             val output = FloatArray(16000 * 60)
             val buffer = ShortArray(3200)
             var count = 0
-            var loudest = 0f
             recorder.startRecording()
+            Log.i("CatatVoice", "Recording source=MIC; inputType=${recorder.routedDevice?.type}; rate=${recorder.sampleRate}")
             while (running.get() && count < output.size) {
                 val n = recorder.read(buffer, 0, minOf(buffer.size, output.size - count))
                 check(n >= 0) { "Rekaman terputus. Coba lagi." }
@@ -64,10 +72,9 @@ class VoiceRecorder {
                 var squared = 0.0
                 for (i in 0 until n) { val sample = buffer[i] / 32768f; output[count++] = sample; squared += sample * sample }
                 val rms = sqrt(squared / n).toFloat()
-                loudest = maxOf(loudest, rms)
                 level((rms * 12).coerceIn(0f, 1f), count / 16000)
             }
-            require(count >= 4800 && loudest >= 0.002f) { "Suara belum terdengar. Dekatkan HP dan coba rekam lagi." }
+            require(count >= 4800) { "Rekaman terlalu singkat. Coba rekam ucapan lengkap." }
             output.copyOf(count)
         } finally {
             running.set(false)
@@ -78,59 +85,73 @@ class VoiceRecorder {
 }
 
 class VoiceEngine(private val context: Context) {
-    suspend fun transcribe(audio: FloatArray, task: VoiceTask = VoiceTask(), progress: (Int, Int) -> Unit = { _, _ -> }, modelName: String = "ggml-base-q5_1.bin"): String {
+    companion object { private val modelFilesMutex = Mutex() }
+
+    suspend fun transcribe(audio: FloatArray, task: VoiceTask = VoiceTask(), progress: (Int, Int) -> Unit = { _, _ -> }, modelName: String = VoiceModels.defaultName): String {
         try { return withContext(Dispatchers.Default) {
             val started = android.os.SystemClock.elapsedRealtime()
             task.checkActive()
-            require(audio.any { abs(it) >= .002f }) { "Suara belum terdengar. Dekatkan HP dan coba rekam lagi." }
+            val prepared = AudioPreprocessor.prepare(audio)
             progress(0, 0)
-            val expectedSize = when (modelName) {
-                "ggml-tiny-q5_1.bin" -> 32152673L
-                "ggml-base-q5_1.bin" -> 59707625L
-                else -> error("Model suara tidak dikenal.")
+            val model = prepareModel(modelName, task)
+            task.checkActive()
+            Log.i("CatatVoice", "Recorded=${audio.size / 16000f}s; prepared=${prepared.samples.size / 16000f}s; model=$modelName; gain=${prepared.gain}; rms=${prepared.inputRms}; peak=${prepared.inputPeak}; decode=beam3")
+            val text = WhisperNative.transcribe(model.absolutePath, prepared.samples, task.id, VoiceProgress(progress)).trim()
+            if (modelName == VoiceModels.SMALL_NAME) {
+                // Weight files are expendable; saved expenses and settings are never touched.
+                File(context.filesDir, VoiceModels.BASE_NAME).delete()
+                File(context.filesDir, "ggml-tiny-q5_1.bin").delete()
             }
-            val model = File(context.filesDir, modelName)
-            if (model.length() != expectedSize) {
-                val temp = File(context.filesDir, "$modelName.tmp")
+            Log.i("CatatVoice", "Voice finished in ${android.os.SystemClock.elapsedRealtime() - started}ms; characters=${text.length}")
+            text
+        } } finally { task.close() }
+    }
+
+    private suspend fun prepareModel(name: String, task: VoiceTask): File = withContext(Dispatchers.IO) {
+        modelFilesMutex.withLock {
+            task.checkActive()
+            val spec = VoiceModels.supported[name] ?: error("Model suara tidak dikenal.")
+            val model = File(context.filesDir, name)
+            val prefs = context.getSharedPreferences("verified-voice-models", Context.MODE_PRIVATE)
+            fun marker() = "${spec.sha256}:${model.length()}:${model.lastModified()}"
+            if (model.length() == spec.bytes && prefs.getString(name, null) == marker()) return@withLock model
+            fun checksum(file: File): String {
+                val digest = MessageDigest.getInstance("SHA-256")
+                file.inputStream().use { input ->
+                    val block = ByteArray(64 * 1024)
+                    while (true) {
+                        task.checkActive()
+                        val n = input.read(block)
+                        if (n < 0) break
+                        digest.update(block, 0, n)
+                    }
+                }
+                return digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
+            }
+            if (model.length() != spec.bytes || checksum(model) != spec.sha256) {
+                val temp = File(context.filesDir, "$name.tmp")
                 try {
-                    context.assets.open(modelName).use { input -> temp.outputStream().use { output ->
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    context.assets.open(name).use { input -> temp.outputStream().use { output ->
                         val block = ByteArray(64 * 1024)
                         while (true) {
                             task.checkActive()
                             val n = input.read(block)
                             if (n < 0) break
                             output.write(block, 0, n)
+                            digest.update(block, 0, n)
                         }
                     } }
-                    require(temp.length() == expectedSize) { "Model suara tidak lengkap. Pasang ulang aplikasi." }
+                    val hash = digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
+                    require(temp.length() == spec.bytes && hash == spec.sha256) { "Model suara tidak lengkap. Pasang ulang aplikasi." }
+                    task.checkActive()
                     check(temp.renameTo(model)) { "Penyimpanan HP belum cukup untuk menyiapkan suara." }
                 } finally { temp.delete() }
             }
-            task.checkActive()
-            val trimmed = trimAudio(audio)
-            Log.i("CatatVoice", "Recorded=${audio.size / 16000f}s; trimmed=${trimmed.size / 16000f}s; model=$modelName")
-            val text = WhisperNative.transcribe(model.absolutePath, trimmed, task.id, VoiceProgress(progress)).trim()
-            Log.i("CatatVoice", "Voice finished in ${android.os.SystemClock.elapsedRealtime() - started}ms; characters=${text.length}")
-            text
-        } } finally { task.close() }
+            prefs.edit().putString(name, marker()).apply()
+            model
+        }
     }
 
-    // Remove silence at the edges, keeping 250 ms around audible samples.
-    // Pauses between purchases remain intact.
-    internal fun trimAudio(audio: FloatArray): FloatArray {
-        val block = 320
-        var first = -1
-        var last = 0
-        for (start in audio.indices step block) {
-            val end = minOf(start + block, audio.size)
-            var sum = 0.0
-            for (i in start until end) sum += audio[i] * audio[i]
-            if (sqrt(sum / (end - start)) >= .002) {
-                if (first < 0) first = start
-                last = end
-            }
-        }
-        if (first < 0) return audio
-        return audio.copyOfRange(maxOf(0, first - 4000), minOf(audio.size, last + 4000))
-    }
+    internal fun trimAudio(audio: FloatArray): FloatArray = AudioPreprocessor.trim(audio)
 }

@@ -1,6 +1,18 @@
 **Notra siap dicoba di Android**
 
-APK pembaruan: `D:\CatatCatat-tools\dist\Notra-v1.0.4.apk`. Versi ini mengganti ikon dengan objek catatan pada PNG transparan. Launcher HP dapat menambahkan bingkainya sendiri. Model suara sudah ada di dalam APK; tidak perlu mengunduh model lagi di HP. Pasang sebagai pembaruan di atas Catat-Catat/Notra, tanpa mencopot aplikasi, agar catatan tetap ada. Sertifikat penandatanganan dan ID aplikasi tetap sama.
+APK upgrade: `D:\CatatCatat-tools\dist\Notra-v1.1.0-Small.apk`. Model suara ditingkatkan dari Base ke **Small multilingual Q5_1**, dengan decoder lebih teliti dan penyesuaian volume rekaman pelan. Model sudah ada di APK; HP tetap dapat dipakai offline. Pasang sebagai pembaruan tanpa mencopot Notra, agar catatan tetap ada. Sertifikat dan ID aplikasi tetap sama. Ikon, tema, laporan, dan cadangan dipertahankan.
+
+Model Small sendiri sekitar 190 MB; APK lengkap sekitar 204 MiB (214 MB), dan kebutuhan penyimpanan/RAM bertambah. Pemakaian pertama menyalin serta memeriksa model, sehingga dapat lebih lama. Model lebih besar masih dapat salah mengenali ucapan dan belum menjamin tempo tertentu di GT 10 Pro.
+
+**Membandingkan Small dengan Base**
+
+1. Buat cadangan catatan dahulu melalui Pengaturan.
+2. Pasang APK Small sebagai pembaruan. Ucapkan dengan tempo normal: “cuci dua belas ribu”, “parkir dua ribu”, “langganan ChatGPT seratus enam puluh lima ribu”, dan “charger tiga puluh ribu, speaker seratus dua puluh ribu”. Periksa nama, nominal, dan waktu proses; batalkan draft uji bila tidak ingin menyimpannya.
+3. Ulangi di tempat/jarak HP yang sama memakai `Notra-v1.1.0-Base-pembanding.apk`. Paket ini memakai pemrosesan rekaman dan decoder yang sama dengan Small agar model dapat dibandingkan.
+4. Kedua APK memakai versionCode 6 dan kunci yang sama, sehingga bisa dipasang bergantian tanpa uninstall. Versi lama 77 MB tetap bisa disimpan sebagai arsip; pemasangan langsung versi 1.0.4 di atas 1.1.0 dapat ditolak Android sebagai downgrade. Gunakan APK Base pembanding bila ingin kembali ke model ringan.
+5. Catat kata/nominal yang salah beserta lama proses. Uji sintetis di emulator tidak menggantikan pengujian suara asli kamu.
+
+Pada enam contoh sintetis yang sama, Small benar 6/6 dan Base 4/6. Base juga gagal satu dari 12 tes Android karena salah membaca nominal kedua. Paket Base disediakan untuk eksperimen perbandingan. Hasil lengkap, termasuk kesalahan, ada di `HASIL-UJI.md`.
 
 **Memasang**
 
