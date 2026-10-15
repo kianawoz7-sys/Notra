@@ -9,6 +9,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <android/log.h>
+#include "InferenceCpu.h"
 
 using Clock = std::chrono::steady_clock;
 struct VoiceTask {
@@ -56,12 +57,14 @@ struct Progress {
     void report(int stage, int percent) { if (!env->ExceptionCheck() && !task->aborted()) env->CallVoidMethod(listener, update, stage, percent); }
 };
 extern "C" JNIEXPORT jstring JNICALL
-Java_id_catatcatat_WhisperNative_transcribe(JNIEnv *env, jobject, jstring path, jfloatArray audio, jlong id, jobject listener) {
+Java_id_catatcatat_WhisperNative_transcribe(JNIEnv *env, jobject, jstring path, jfloatArray audio, jlong id, jobject listener, jint audio_context, jint beam_size, jboolean prefer_fast_cores) {
     auto task = find_task(id);
     if (!task) { fail(env, "java/lang/IllegalStateException", "Proses suara sudah ditutup."); return nullptr; }
     if (stop_if_aborted(env, *task)) return nullptr;
     std::unique_lock<std::timed_mutex> lock(model_mutex, std::defer_lock);
     while (!lock.try_lock_for(std::chrono::milliseconds(50))) if (stop_if_aborted(env, *task)) return nullptr;
+    const int default_threads = std::max(1, std::min(4, static_cast<int>(std::thread::hardware_concurrency())));
+    InferenceCpuScope cpu_scope(prefer_fast_cores, default_threads);
     const char *raw_path = env->GetStringUTFChars(path, nullptr);
     if (!raw_path) return nullptr;
     const std::string model(raw_path);
@@ -85,10 +88,16 @@ Java_id_catatcatat_WhisperNative_transcribe(JNIEnv *env, jobject, jstring path, 
     auto *ctx = cached_context.get();
     jfloat *samples = env->GetFloatArrayElements(audio, nullptr);
     if (!samples) return nullptr;
-    auto params = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
-    params.beam_search.beam_size = 3;
+    if (audio_context < 0 || audio_context > whisper_n_audio_ctx(ctx) || (beam_size != 1 && beam_size != 3)) {
+        env->ReleaseFloatArrayElements(audio, samples, JNI_ABORT);
+        fail(env, "java/lang/IllegalArgumentException", "Konfigurasi suara tidak valid.");
+        return nullptr;
+    }
+    auto params = whisper_full_default_params(beam_size == 1 ? WHISPER_SAMPLING_GREEDY : WHISPER_SAMPLING_BEAM_SEARCH);
+    params.beam_search.beam_size = beam_size;
+    params.greedy.best_of = 1;
     params.temperature = 0.0f;
-    params.n_threads = std::max(1, std::min(4, static_cast<int>(std::thread::hardware_concurrency())));
+    params.n_threads = cpu_scope.threads();
     params.language = "id";
     params.translate = false;
     params.no_context = true;
@@ -102,8 +111,9 @@ Java_id_catatcatat_WhisperNative_transcribe(JNIEnv *env, jobject, jstring path, 
     params.suppress_nst = true;
     params.temperature_inc = 0.0f;
     const int sample_count = env->GetArrayLength(audio);
-    // Use the model's trained context rather than cutting encoder attention for speed.
-    params.audio_ctx = 0;
+    // Production QUALITY uses full context. Shorter windows are experimental;
+    // Kotlin grows them with the whole recording plus padding, up to full context.
+    params.audio_ctx = audio_context;
     params.max_tokens = std::min(192, std::max(48, sample_count * 8 / 16000 + 24));
     // Vocabulary hints only: example prices must not steer the spoken amounts.
     params.initial_prompt = "Catatan pengeluaran dalam bahasa Indonesia, nominal dalam rupiah. Kosakata: cuci, laundry, parkir, charger, speaker, langganan ChatGPT, kost, paket data, ngeprint, bensin, makanan, minuman.";
@@ -114,7 +124,15 @@ Java_id_catatcatat_WhisperNative_transcribe(JNIEnv *env, jobject, jstring path, 
     params.progress_callback = [](whisper_context *, whisper_state *, int percent, void *data) { static_cast<Progress *>(data)->report(1, percent); };
     params.progress_callback_user_data = &progress;
     progress.report(1, 0);
+    whisper_reset_timings(ctx);
+    const auto decode_started = Clock::now();
     const int result = whisper_full(ctx, params, samples, sample_count);
+    const auto decode_ms = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - decode_started).count();
+    std::unique_ptr<whisper_timings> timings(whisper_get_timings(ctx));
+    if (timings) {
+        // Upstream reports per-run averages, not total decoder time. No text/audio.
+        __android_log_print(ANDROID_LOG_INFO, "CatatVoice", "Native timings: wall_ms=%lld; encoder_avg_ms=%.1f; decoder_token_avg_ms=%.1f; prompt_batch_avg_ms=%.1f; beam=%d; context=%d; threads=%d; cpu_mask=%llx; result=%d", static_cast<long long>(decode_ms), timings->encode_ms, timings->decode_ms, timings->prompt_ms, beam_size, audio_context == 0 ? whisper_n_audio_ctx(ctx) : audio_context, params.n_threads, cpu_scope.mask(), result);
+    }
     env->ReleaseFloatArrayElements(audio, samples, JNI_ABORT);
     if (env->ExceptionCheck() || stop_if_aborted(env, *task)) return nullptr;
     if (result != 0) { fail(env, "java/lang/IllegalStateException", "Suara belum berhasil diproses. Coba rekam ulang."); return nullptr; }

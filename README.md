@@ -74,6 +74,8 @@ Model Small: `ggml-small-q5_1.bin`, **190.085.487 byte**, SHA-256 `ae85e4a935d7a
 
 **Pengujian dan batas bukti**
 
+Percobaan latensi versi sumber 1.1.1 dijelaskan di `EKSPERIMEN-VOICE.md`. Build utama tetap QUALITY; profil cepat harus memakai `-Experiment` dan terpasang sebagai **Notra Uji** dengan ID serta penyimpanan terpisah. APK 1.1.0 dipertahankan di D. Output build baru memakai awalan `Notra-v1.1.1`. Target 3–4 detik adalah sasaran eksperimen, belum jaminan performa.
+
 Pengujian otomatis mencakup parsing nominal bahasa Indonesia, beberapa pengeluaran, satuan ambigu, jumlah negatif/berlebihan, batas minggu/bulan, total yang mengabaikan penghapusan, round-trip backup, ID ganda, konflik edit/hapus, file rusak, dan pemulihan berulang. Pengujian Android terpisah memeriksa Room setelah database dibuka kembali, rollback transaksi, pemulihan ke database kosong, dan pemuatan model native offline.
 
 Hasil versi awal dan pembaruan ada di `HASIL-UJI.md`. Versi 1.1.0 lulus 59 tes unit dan 12 kasus Android dengan Small. Pada enam contoh sintetis perbandingan, Small benar 6/6 dan Base 4/6; Base juga gagal satu kasus regresi dua pengeluaran (11/12). Pengujian Android menggunakan AndroidJUnitRunner langsung melalui ADB agar tidak bergantung pada unduhan tambahan pengelola tes Gradle. Akurasi terhadap suara pengguna dan waktu proses di GT 10 Pro memerlukan uji ulang langsung pada HP tersebut.

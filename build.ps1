@@ -1,8 +1,11 @@
 param(
     [string[]]$Tasks = @('testDebugUnitTest', 'assembleDebug', 'lintDebug'),
-    [ValidateSet('small', 'base')][string]$VoiceModel = 'small'
+    [ValidateSet('small', 'base')][string]$VoiceModel = 'small',
+    [ValidateSet('quality', 'context512', 'context384', 'fast384')][string]$VoiceProfile = 'quality',
+    [switch]$Experiment
 )
 $ErrorActionPreference = 'Stop'
+if (-not $Experiment -and $VoiceProfile -ne 'quality') { throw 'Profil cepat harus memakai -Experiment agar Notra utama tidak terganti.' }
 $env:JAVA_HOME = 'D:\Android studio\jbr'
 $env:GRADLE_USER_HOME = 'D:\Backup Android Studio\.gradle'
 $env:ANDROID_HOME = 'D:\CatatCatat-tools\sdk'
@@ -36,13 +39,13 @@ if ($taskSourceMirror -ne 'D:\CatatCatat-tools\source\app\src') { throw 'Jalur s
 if ($LASTEXITCODE -ge 8) { throw 'Gagal menyinkronkan sumber aplikasi di D.' }
 Push-Location $taskBuildSource
 try {
-    & $taskGradle --project-cache-dir 'D:\CatatCatat-tools\project-cache' --console=plain "-PvoiceModel=$VoiceModel" @Tasks
+    & $taskGradle --project-cache-dir 'D:\CatatCatat-tools\project-cache' --console=plain "-PvoiceModel=$VoiceModel" "-PvoiceProfile=$VoiceProfile" "-PvoiceExperiment=$($Experiment.IsPresent.ToString().ToLowerInvariant())" @Tasks
     if ($LASTEXITCODE -ne 0) { throw "Build gagal: $LASTEXITCODE" }
     if (Test-Path -LiteralPath "$taskBuildSource\app\schemas") { Copy-Item -LiteralPath "$taskBuildSource\app\schemas" -Destination "$PSScriptRoot\app" -Recurse -Force }
     if ($Tasks -contains 'assembleDebug') {
         $taskDist = 'D:\CatatCatat-tools\dist'
         New-Item -ItemType Directory -Force -Path $taskDist | Out-Null
-        $taskApkName = if ($VoiceModel -eq 'small') { 'Notra-v1.1.0-Small.apk' } else { 'Notra-v1.1.0-Base-pembanding.apk' }
+        $taskApkName = if ($Experiment) { "Notra-v1.1.1-Uji-$VoiceProfile.apk" } elseif ($VoiceModel -eq 'small') { 'Notra-v1.1.1-Small-Quality.apk' } else { 'Notra-v1.1.1-Base-pembanding.apk' }
         Copy-Item -LiteralPath 'D:\CatatCatat-tools\build\app\outputs\apk\debug\app-debug.apk' -Destination (Join-Path $taskDist $taskApkName) -Force
         Write-Output "APK: $taskDist\$taskApkName"
     }

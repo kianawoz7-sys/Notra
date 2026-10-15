@@ -31,7 +31,7 @@ object WhisperNative {
     external fun createTask(timeoutMs: Long): Long
     external fun cancelTask(task: Long)
     external fun releaseTask(task: Long)
-    external fun transcribe(modelPath: String, audio: FloatArray, task: Long, progress: VoiceProgress): String
+    external fun transcribe(modelPath: String, audio: FloatArray, task: Long, progress: VoiceProgress, audioContext: Int, beamSize: Int, preferFastCores: Boolean): String
 }
 
 @Keep
@@ -87,7 +87,7 @@ class VoiceRecorder {
 class VoiceEngine(private val context: Context) {
     companion object { private val modelFilesMutex = Mutex() }
 
-    suspend fun transcribe(audio: FloatArray, task: VoiceTask = VoiceTask(), progress: (Int, Int) -> Unit = { _, _ -> }, modelName: String = VoiceModels.defaultName): String {
+    suspend fun transcribe(audio: FloatArray, task: VoiceTask = VoiceTask(), progress: (Int, Int) -> Unit = { _, _ -> }, modelName: String = VoiceModels.defaultName, profile: VoiceProfile = VoiceProfile.default): String {
         try { return withContext(Dispatchers.Default) {
             val started = android.os.SystemClock.elapsedRealtime()
             task.checkActive()
@@ -95,8 +95,9 @@ class VoiceEngine(private val context: Context) {
             progress(0, 0)
             val model = prepareModel(modelName, task)
             task.checkActive()
-            Log.i("CatatVoice", "Recorded=${audio.size / 16000f}s; prepared=${prepared.samples.size / 16000f}s; model=$modelName; gain=${prepared.gain}; rms=${prepared.inputRms}; peak=${prepared.inputPeak}; decode=beam3")
-            val text = WhisperNative.transcribe(model.absolutePath, prepared.samples, task.id, VoiceProgress(progress)).trim()
+            val audioContext = profile.audioContext(prepared.samples.size)
+            Log.i("CatatVoice", "Recorded=${audio.size / 16000f}s; prepared=${prepared.samples.size / 16000f}s; model=$modelName; gain=${prepared.gain}; rms=${prepared.inputRms}; peak=${prepared.inputPeak}; profile=${profile.key}; context=$audioContext; beam=${profile.beamSize}")
+            val text = WhisperNative.transcribe(model.absolutePath, prepared.samples, task.id, VoiceProgress(progress), audioContext, profile.beamSize, profile.preferFastCores).trim()
             if (modelName == VoiceModels.SMALL_NAME) {
                 // Weight files are expendable; saved expenses and settings are never touched.
                 File(context.filesDir, VoiceModels.BASE_NAME).delete()

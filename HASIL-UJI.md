@@ -1,3 +1,14 @@
+**Notra Uji 1.1.1 — percobaan latensi, 15 Oktober 2026, Asia/Jakarta**
+
+Kandidat dipasang sebagai `id.catatcatat.voicetest` dengan data terpisah. Notra utama pada HP tetap 1.1.0 / versionCode 6. Small tetap digunakan; profil terpilih context512 / beam3 menambah pemilihan inti cepat sementara serta mengurangi frekuensi gambar orb. Model, ikon, tema, skema database, dan format backup tetap sama.
+
+- **65 tes unit lulus; 12 tes integrasi Android lulus pada Infinix pengguna**. Batal/timeout, pemakaian ulang native, pengeluaran satu/dua/empat item, rebu, kasus enam detik, hening, transaksi, persistensi, dan backup lulus.
+- Benchmark final memakai delapan audio sintetis yang sama pada HP, dengan aktivitas foreground dan panel pencegah rekaman manual bersamaan. **8/8 benar** untuk nama dan nominal; median **5,966 detik**, rentang **5,467–11,841 detik**. Kasus lambat tetap dihitung. **Target 3 detik belum tercapai secara konsisten.** Ini bukan bukti akurasi suara asli semua orang.
+- Setelah benchmark, uji MIC pengguna pada Notra Uji menghasilkan waktu **3,846 detik** untuk rekaman 3,0 detik, termasuk pemuatan model 266 ms. Ini bukti waktu satu ucapan pendek pada HP; log tidak berisi teks sehingga ketepatan hasil memerlukan pemeriksaan pengguna.
+- Profil 384 dan greedy384 benar 7/8 karena “cuci” pelan menjadi “cici”; keduanya tidak dipilih. Uji pemanasan awal yang timeout dan putaran yang bercampur rekaman manual juga disimpan terpisah. Semua rincian serta tabel waktu ada di `EKSPERIMEN-VOICE.md`.
+- Lint: **0 error, 7 warning**. Satu warning baru adalah string nama aplikasi lama yang tidak dipakai oleh label launcher eksperimen. Signature v2, sertifikat lama dan alignment 16 KB valid. Tanpa izin internet; Wi-Fi aktif hanya untuk koneksi wireless ADB. Tidak diklaim sebagai tes mode pesawat.
+- APK `D:\CatatCatat-tools\dist\Notra-v1.1.1-Uji-context512.apk`: **211.856.571 byte**, SHA-256 `0e3738fcb7bbec51218b98b80d7e6f12804d3ae15902d04295c87f13d2e0bbbe`. Model Small di dalamnya memiliki hash pinned semula, tidak ada fixture audio dalam APK pengguna. Panduan: `PANDUAN-UJI-CEPAT.md`.
+
 **Notra 1.1.0 — upgrade voice, 15 Oktober 2026, Asia/Jakarta**
 
 Default voice menjadi Whisper Small multilingual Q5_1 (190.085.487 byte). Rekaman memakai jalur MIC, pemangkasan hening hanya di tepi dengan padding 400 ms, dan gain terbatas maksimal 8 kali. Decoder memakai beam search 3, konteks penuh, serta prompt kosakata tanpa contoh harga. Model diperiksa ukuran/SHA-256 sebelum dipakai. Small membutuhkan lebih banyak penyimpanan dan komputasi; tidak ada optimasi pengecilan APK.

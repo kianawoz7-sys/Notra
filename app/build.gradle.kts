@@ -9,6 +9,10 @@ val localConfig = Properties().apply { rootProject.file("local.properties").inpu
 val voiceModel = providers.gradleProperty("voiceModel").getOrElse("small")
 require(voiceModel in setOf("small", "base")) { "voiceModel must be small or base" }
 val voiceModelFile = "ggml-$voiceModel-q5_1.bin"
+val voiceProfile = providers.gradleProperty("voiceProfile").getOrElse("quality")
+val voiceExperiment = providers.gradleProperty("voiceExperiment").getOrElse("false").toBooleanStrict()
+require(voiceProfile in setOf("quality", "context512", "context384", "fast384")) { "Unknown voiceProfile" }
+require(voiceExperiment || voiceProfile == "quality") { "Speed profiles require -PvoiceExperiment=true; keep the main app on QUALITY" }
 val voiceAssets by tasks.registering(Sync::class) {
     from(localConfig.getProperty("model.dir")) { include(voiceModelFile, "*LICENSE.txt") }
     into("D:/CatatCatat-tools/packaged-model")
@@ -23,12 +27,15 @@ android {
     compileSdk = 35
     ndkVersion = "28.2.13676358"
     defaultConfig {
-        applicationId = "id.catatcatat"
+        applicationId = if (voiceExperiment) "id.catatcatat.voicetest" else "id.catatcatat"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = if (voiceModel == "small") "1.1.0" else "1.1.0-base"
+        versionCode = 7
+        versionName = if (voiceExperiment) "1.1.1-uji-$voiceProfile" else if (voiceModel == "small") "1.1.1" else "1.1.1-base"
         buildConfigField("String", "VOICE_MODEL_FILE", "\"$voiceModelFile\"")
+        buildConfigField("String", "VOICE_PROFILE", "\"$voiceProfile\"")
+        buildConfigField("boolean", "VOICE_EXPERIMENT", voiceExperiment.toString())
+        resValue("string", "launcher_name", if (voiceExperiment) "Notra Uji" else "Notra")
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake {
             arguments += listOf("-DWHISPER_SOURCE_DIR=${localConfig.getProperty("whisper.dir")}", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")

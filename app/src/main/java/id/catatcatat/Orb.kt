@@ -15,9 +15,13 @@ import kotlin.math.*
 @Composable
 fun VoiceOrb(size: Dp = 190.dp, active: Boolean = false, level: Float = 0f, modifier: Modifier = Modifier) {
     val motion = rememberInfiniteTransition(label = "orb")
-    val phase by motion.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(if (active) 4200 else 10000, easing = LinearEasing)), label = "cloud")
+    // Integer steps invalidate the expensive cloud drawing only ~20 times/sec
+    // when active (~8/sec idle), rather than at a phone's 120 Hz display rate.
+    // Keep the same shape, period and system animation-scale behavior.
+    val phaseStep by motion.animateValue(0, 84, Int.VectorConverter, infiniteRepeatable(tween(if (active) 4200 else 10000, easing = LinearEasing)), label = "cloud")
     val amplitude by animateFloatAsState(if (active) level else 0.04f, tween(180), label = "voice-level")
     Canvas(modifier.size(size)) {
+        val phase = phaseStep * (2 * PI / 84).toFloat()
         val radius = this.size.minDimension / 2 * (0.94f + amplitude * 0.04f)
         val center = this.center
         val circle = Path().apply { addOval(androidx.compose.ui.geometry.Rect(center - Offset(radius, radius), center + Offset(radius, radius))) }
